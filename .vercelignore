@@ -1,0 +1,7 @@
+# Archivos que no se deben incluir en el despliegue de Vercel
+.env.local
+.env*.local
+node_modules
+.next
+.vercel
+
