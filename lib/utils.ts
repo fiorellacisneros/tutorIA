@@ -9,13 +9,13 @@ export function cn(...inputs: ClassValue[]) {
 export function getTipoColor(tipo: string): string {
   switch (tipo) {
     case 'positivo':
-      return '!bg-primary !text-white hover:!bg-primary/90';
+      return '!bg-green-600 !text-white hover:!bg-green-700';
     case 'ausencia':
-      return '!bg-purple-600 !text-white hover:!bg-purple-700';
+      return '!bg-orange-500 !text-white hover:!bg-orange-600';
     case 'conducta':
       return '!bg-red-600 !text-white hover:!bg-red-700';
     case 'academica':
-      return '!bg-primary !text-white hover:!bg-primary/90';
+      return '!bg-blue-600 !text-white hover:!bg-blue-700';
     default:
       return '!bg-gray-500 !text-white hover:!bg-gray-600';
   }
