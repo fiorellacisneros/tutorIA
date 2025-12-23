@@ -1,3 +1,61 @@
+/* Eliminar borde y fondo amarillo de autofill en inputs, textarea y select */
+input:-webkit-autofill,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #222 !important;
+  border: 1px solid #6366f1 !important; /* primary color */
+  background-color: #fff !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+input:autofill,
+input:autofill:focus,
+input:autofill:hover,
+input:autofill:active,
+textarea:autofill,
+textarea:autofill:focus,
+textarea:autofill:hover,
+textarea:autofill:active,
+select:autofill,
+select:autofill:focus,
+select:autofill:hover,
+select:autofill:active {
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  color: #222 !important;
+  border: 1px solid #6366f1 !important;
+  background-color: #fff !important;
+}
+/* Eliminar borde y fondo amarillo de autofill en inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #222 !important;
+  border: 1px solid #6366f1 !important; /* primary color */
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+input:autofill,
+input:autofill:focus,
+input:autofill:hover,
+input:autofill:active {
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  color: #222 !important;
+  border: 1px solid #6366f1 !important;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -14,7 +14,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
+    <div className="flex min-h-screen items-center justify-center px-4 sm:px-6 py-0 overflow-y-hidden">
       <div className="w-full max-w-4xl space-y-6 sm:space-y-8">
         {/* Hero Section */}
         <div className="text-center space-y-3 sm:space-y-4">

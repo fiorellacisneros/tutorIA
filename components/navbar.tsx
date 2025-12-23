@@ -32,15 +32,6 @@ export function Navbar() {
           <span className="text-lg sm:text-xl font-semibold text-gray-900">TutorIA</span>
         </Link>
         
-        <div className="flex items-center space-x-3 sm:space-x-4">
-          <span className="text-xs sm:text-sm font-medium text-gray-700">Profesor</span>
-          <Switch
-            checked={isDirector}
-            onCheckedChange={handleSwitchChange}
-            aria-label="Cambiar entre Profesor y Director"
-          />
-          <span className="text-xs sm:text-sm font-medium text-gray-700">Director</span>
-        </div>
       </div>
     </nav>
   );

@@ -1,9 +1,11 @@
-import { Incidencia, Nota, EstudianteInfo, TipoDerivacion, Tutor } from './types';
+import { Incidencia, Nota, EstudianteInfo, TipoDerivacion, Tutor, Clase, RegistroAsistenciaClase, DiaSemana } from './types';
 
 const STORAGE_KEY = 'tutoria_incidencias';
 const NOTAS_STORAGE_KEY = 'tutoria_notas';
 const ESTUDIANTES_STORAGE_KEY = 'tutoria_estudiantes';
 const TUTORES_STORAGE_KEY = 'tutoria_tutores';
+const CLASES_STORAGE_KEY = 'tutoria_clases';
+const ASISTENCIA_CLASES_STORAGE_KEY = 'tutoria_asistencia_clases';
 
 export function getIncidencias(): Incidencia[] {
   if (typeof window === 'undefined') return [];
@@ -73,20 +75,17 @@ export function getIncidenciasByGravedad(gravedad?: 'grave' | 'moderada' | 'leve
 
 export function getIncidenciasByFiltros(
   gravedad?: 'grave' | 'moderada' | 'leve' | 'todas',
-  tipo?: 'ausencia' | 'conducta' | 'academica' | 'positivo' | 'todas'
+  tipo?: 'ausencia' | 'tardanza' | 'conducta' | 'academica' | 'positivo' | 'todas'
 ): Incidencia[] {
   let incidencias = getIncidencias();
-  
   // Filtrar por gravedad
   if (gravedad && gravedad !== 'todas') {
     incidencias = incidencias.filter(inc => inc.gravedad === gravedad);
   }
-  
   // Filtrar por tipo
   if (tipo && tipo !== 'todas') {
     incidencias = incidencias.filter(inc => inc.tipo === tipo);
   }
-  
   return incidencias.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 }
 
@@ -257,6 +256,8 @@ export function seedInitialData(): void {
   const existingIncidencias = getIncidencias();
   const existingTutores = getTutores();
   const existingNotas = getNotas();
+  const existingClases = getClases();
+  const existingAsistenciaClases = getAsistenciaClases();
   
   // Verificar si hay incidencias derivadas pendientes
   const incidenciasDerivadasPendientes = existingIncidencias.filter(inc => 
@@ -571,5 +572,118 @@ export function seedInitialData(): void {
     
     saveNotas(notasData);
   }
+
+  // Seed de clases (simple) si no existen
+  if (existingClases.length === 0) {
+    const posiblesDias: DiaSemana[] = ['lunes','martes','miercoles','jueves','viernes'];
+    const clasesSeed: Omit<Clase, 'id'>[] = [
+      { nombre: 'Matemáticas', grado: '3ro', seccion: 'A', profesor: 'Prof. López', dias: posiblesDias, periodos: [1,3] },
+      { nombre: 'Ciencias', grado: '2do', seccion: 'A', profesor: 'Prof. Fernández', dias: posiblesDias, periodos: [2,4] },
+      { nombre: 'Lengua', grado: '1ro', seccion: 'A', profesor: 'Prof. García', dias: posiblesDias, periodos: [1,5] },
+      { nombre: 'Historia', grado: '4to', seccion: 'A', profesor: 'Prof. Torres', dias: posiblesDias, periodos: [2,6] },
+      { nombre: 'Arte', grado: '5to', seccion: 'A', profesor: 'Prof. Ramírez', dias: posiblesDias, periodos: [3,7] },
+    ];
+    clasesSeed.forEach(c => addClase(c));
+  }
+}
+
+// ===== Clases (Materias) =====
+export function getClases(): Clase[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(CLASES_STORAGE_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error reading clases from localStorage:', error);
+    return [];
+  }
+}
+
+export function saveClases(clases: Clase[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CLASES_STORAGE_KEY, JSON.stringify(clases));
+  } catch (error) {
+    console.error('Error saving clases to localStorage:', error);
+  }
+}
+
+export function addClase(clase: Omit<Clase, 'id'>): Clase {
+  const clases = getClases();
+  const newClase: Clase = { ...clase, id: Date.now().toString() + Math.random().toString(36).slice(2, 7) };
+  clases.push(newClase);
+  saveClases(clases);
+  return newClase;
+}
+
+export function getClasesByProfesor(profesor: string): Clase[] {
+  const clases = getClases();
+  if (!profesor) return clases;
+  return clases.filter(c => c.profesor.toLowerCase() === profesor.toLowerCase());
+}
+
+export function getClasesByGradoSeccion(grado: string, seccion: string): Clase[] {
+  const clases = getClases();
+  return clases.filter(c => c.grado === grado && c.seccion === seccion);
+}
+
+// ===== Asistencia por Clase =====
+export function getAsistenciaClases(): RegistroAsistenciaClase[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(ASISTENCIA_CLASES_STORAGE_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error reading asistencia clases from localStorage:', error);
+    return [];
+  }
+}
+
+export function saveAsistenciaClases(registros: RegistroAsistenciaClase[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ASISTENCIA_CLASES_STORAGE_KEY, JSON.stringify(registros));
+  } catch (error) {
+    console.error('Error saving asistencia clases to localStorage:', error);
+  }
+}
+
+export function addRegistroAsistenciaClase(rec: Omit<RegistroAsistenciaClase,'id'|'timestamp'>): RegistroAsistenciaClase {
+  const registros = getAsistenciaClases();
+  // Buscar si ya existe un registro para la misma clase, fecha y periodo
+  const idx = registros.findIndex(r => r.fecha === rec.fecha && r.claseId === rec.claseId && r.periodo === rec.periodo);
+  const nuevo: RegistroAsistenciaClase = {
+    ...rec,
+    id: idx !== -1 ? registros[idx].id : Date.now().toString() + Math.random().toString(36).slice(2,7),
+    timestamp: Date.now()
+  };
+  if (idx !== -1) {
+    // Actualizar el registro existente
+    registros[idx] = nuevo;
+  } else {
+    // Agregar nuevo registro
+    registros.push(nuevo);
+  }
+  saveAsistenciaClases(registros);
+  return nuevo;
+}
+
+export function findRegistroAsistencia(fecha: string, claseId: string, periodo: number): RegistroAsistenciaClase | undefined {
+  return getAsistenciaClases().find(r => r.fecha === fecha && r.claseId === claseId && r.periodo === periodo);
+}
+
+export function getAsistenciaClasesByFilters(params: { fecha?: string; claseId?: string; profesor?: string; grado?: string; seccion?: string; dia?: DiaSemana; periodo?: number }): RegistroAsistenciaClase[] {
+  const registros = getAsistenciaClases();
+  return registros.filter(r => (
+    (params.fecha ? r.fecha === params.fecha : true) &&
+    (params.claseId ? r.claseId === params.claseId : true) &&
+    (params.profesor ? r.profesor.toLowerCase() === params.profesor.toLowerCase() : true) &&
+    (params.grado ? r.grado === params.grado : true) &&
+    (params.seccion ? r.seccion === params.seccion : true) &&
+    (params.dia ? r.dia === params.dia : true) &&
+    (typeof params.periodo === 'number' ? r.periodo === params.periodo : true)
+  )).sort((a,b) => a.periodo - b.periodo || a.timestamp - b.timestamp);
 }
 

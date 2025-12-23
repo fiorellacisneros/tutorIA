@@ -1,4 +1,4 @@
-export type TipoIncidencia = 'ausencia' | 'conducta' | 'academica' | 'positivo';
+export type TipoIncidencia = 'ausencia' | 'tardanza' | 'conducta' | 'academica' | 'positivo';
 export type TipoDerivacion = 'ninguna' | 'director' | 'psicologia' | 'enfermeria' | 'coordinacion' | 'orientacion';
 export type SubtipoConducta = 'agresion' | 'falta_respeto' | 'interrupcion' | 'desobediencia' | 'otra';
 export type SubtipoPositivo = 'ayuda_companero' | 'participacion' | 'liderazgo' | 'creatividad' | 'otro';
@@ -39,11 +39,15 @@ export interface EstudianteInfo {
   seccion: string;
   edad?: number;
   fechaNacimiento?: string;
+  fotoPerfil?: string; // URL de la foto de perfil o data URL
   contacto?: {
     telefono?: string;
     email?: string;
     tutor?: string;
   };
+  asistencias?: number;
+  ausencias?: number;
+  tardanzas?: number;
 }
 
 export interface Tutor {
@@ -60,5 +64,33 @@ export interface ReporteIA {
   note?: string;
   originalError?: string;
   truncated?: boolean; // Indica si el reporte fue cortado por límite de tokens
+}
+
+// Nuevos tipos para asistencia por clase
+export type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes';
+export type EstadoAsistencia = 'presente' | 'tardanza' | 'ausente';
+
+export interface Clase {
+  id: string;
+  nombre: string; // Ej: Matemáticas
+  grado: string;  // Ej: 3ro
+  seccion: string; // Ej: A
+  profesor: string; // Nombre del profesor asignado
+  dias: DiaSemana[]; // Días en los que ocurre la clase
+  periodos: number[]; // Periodos posibles (1..n)
+}
+
+export interface RegistroAsistenciaClase {
+  id: string;
+  fecha: string; // YYYY-MM-DD
+  dia: DiaSemana;
+  claseId: string;
+  grado: string;
+  seccion: string;
+  profesor: string; // redundante para fácil consulta
+  periodo: number;
+  lugar?: string;
+  entries: Record<string, EstadoAsistencia>; // clave: nombre del estudiante
+  timestamp: number;
 }
 

@@ -6,12 +6,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+
 export function getTipoColor(tipo: string): string {
   switch (tipo) {
     case 'positivo':
       return 'bg-green-600 text-white hover:bg-green-700';
     case 'ausencia':
       return 'bg-orange-500 text-white hover:bg-orange-600';
+    case 'tardanza':
+      return 'bg-yellow-400 text-gray-900 hover:bg-yellow-500';
     case 'conducta':
       return 'bg-red-600 text-white hover:bg-red-700';
     case 'academica':
@@ -27,6 +30,8 @@ export function getTipoLabel(tipo: string): string {
       return 'Comportamiento Positivo';
     case 'ausencia':
       return 'Ausencia';
+    case 'tardanza':
+      return 'Tardanza';
     case 'conducta':
       return 'Conducta Negativa';
     case 'academica':
