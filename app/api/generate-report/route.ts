@@ -88,7 +88,16 @@ IMPORTANTE: Máximo 2 líneas por sección. Sin asteriscos ni markdown.`;
       return NextResponse.json({ error: 'No se proporcionó incidencia.' }, { status: 400 });
     }
 
-    const geminiApiKey = 'AIzaSyDtgJ6GR2U8iJqZm7k-4kh17TLLitjsro8';
+    const geminiApiKey = process.env.GOOGLE_AI_API_KEY;
+    
+    if (!geminiApiKey) {
+      console.error('GOOGLE_AI_API_KEY no está configurada');
+      return NextResponse.json({ 
+        error: 'Configuración de API no disponible',
+        resumen: 'Error de configuración',
+        recomendaciones: 'Por favor, contacta al administrador del sistema.'
+      }, { status: 500 });
+    }
 
     console.log('Enviando request a Gemini...');
     

@@ -20,7 +20,13 @@ export async function POST(req: Request) {
     // Estudiante: ...
     // ...
   const { prompt } = await req.json();
-  const GEMINI_API_KEY = "AIzaSyBono5ts-phOD_qzTLxKUgcY_Hi8_h5OF8";
+  const GEMINI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+  
+  if (!GEMINI_API_KEY) {
+    console.error('GOOGLE_AI_API_KEY no está configurada');
+    return new Response(JSON.stringify({ error: true, message: 'Configuración de API no disponible' }), { status: 500 });
+  }
+  
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
 
