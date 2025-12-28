@@ -56,6 +56,18 @@ input:autofill:active {
   color: #222 !important;
   border: 1px solid #6366f1 !important;
 }
+/* Estilos personalizados para select dropdowns */
+select option:checked,
+select option:hover {
+  background-color: #3b82f6 !important; /* blue-500 */
+  color: white !important;
+}
+
+select:focus option:checked {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

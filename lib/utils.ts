@@ -19,6 +19,8 @@ export function getTipoColor(tipo: string): string {
       return 'bg-red-600 text-white hover:bg-red-700';
     case 'academica':
       return 'bg-blue-600 text-white hover:bg-blue-700';
+    case 'asistencia':
+      return 'bg-cyan-600 text-white hover:bg-cyan-700';
     default:
       return 'bg-gray-500 text-white hover:bg-gray-600';
   }
@@ -36,8 +38,10 @@ export function getTipoLabel(tipo: string): string {
       return 'Conducta Negativa';
     case 'academica':
       return 'Académica';
+    case 'asistencia':
+      return 'Asistencia';
     default:
-      return tipo;
+      return tipo.charAt(0).toUpperCase() + tipo.slice(1);
   }
 }
 

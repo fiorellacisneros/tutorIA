@@ -1,4 +1,27 @@
-import { Incidencia, Nota, EstudianteInfo, TipoDerivacion, Tutor, Clase, RegistroAsistenciaClase, DiaSemana } from './types';
+import { EstadoIncidencia } from './types';
+/**
+ * Cambia el estado de una incidencia y registra el cambio en el historial.
+ * @param id ID de la incidencia
+ * @param nuevoEstado Nuevo estado ('Pendiente', 'En revisión', 'Resuelta', 'Cerrada')
+ * @param usuario Usuario que realiza el cambio
+ */
+export function cambiarEstadoIncidencia(id: string, nuevoEstado: EstadoIncidencia, usuario: string): void {
+  const incidencias = getIncidencias();
+  const index = incidencias.findIndex(inc => inc.id === id);
+  if (index !== -1) {
+    incidencias[index].estado = nuevoEstado;
+    if (!incidencias[index].historialEstado) {
+      incidencias[index].historialEstado = [];
+    }
+    incidencias[index].historialEstado.push({
+      estado: nuevoEstado,
+      fecha: new Date().toISOString(),
+      usuario
+    });
+    saveIncidencias(incidencias);
+  }
+}
+import { Incidencia, Nota, EstudianteInfo, TipoDerivacion, Tutor, Clase, RegistroAsistenciaClase, DiaSemana, TutorGradoSeccion } from './types';
 
 const STORAGE_KEY = 'tutoria_incidencias';
 const NOTAS_STORAGE_KEY = 'tutoria_notas';
@@ -6,6 +29,9 @@ const ESTUDIANTES_STORAGE_KEY = 'tutoria_estudiantes';
 const TUTORES_STORAGE_KEY = 'tutoria_tutores';
 const CLASES_STORAGE_KEY = 'tutoria_clases';
 const ASISTENCIA_CLASES_STORAGE_KEY = 'tutoria_asistencia_clases';
+const GRADOS_STORAGE_KEY = 'tutoria_grados';
+const SECCIONES_STORAGE_KEY = 'tutoria_secciones';
+const TUTORES_GRADO_SECCION_STORAGE_KEY = 'tutoria_tutores_grado_seccion';
 
 export function getIncidencias(): Incidencia[] {
   if (typeof window === 'undefined') return [];
@@ -93,24 +119,26 @@ export function getIncidenciasDerivadas(tipoDerivacion?: TipoDerivacion): Incide
   const incidencias = getIncidencias();
   const derivadas = incidencias
     .filter(inc => {
-      const tieneDerivacion = inc.derivacion && inc.derivacion !== 'ninguna';
+      // Incluir todas las incidencias no resueltas (nuevas)
       const noResuelta = !inc.resuelta;
-      const coincideTipo = !tipoDerivacion || inc.derivacion === tipoDerivacion;
-      const cumple = tieneDerivacion && noResuelta && coincideTipo;
-      if (tieneDerivacion && !cumple) {
-        console.log('Incidencia con derivación filtrada:', {
-          id: inc.id,
-          derivacion: inc.derivacion,
-          resuelta: inc.resuelta,
-          tipoFiltro: tipoDerivacion,
-          tieneDerivacion,
-          noResuelta,
-          coincideTipo
-        });
+      
+      // Si se especifica un tipo de derivación, filtrar por ese tipo
+      // Si no se especifica, mostrar todas las incidencias no resueltas
+      if (tipoDerivacion) {
+        // Si hay filtro de tipo, solo mostrar las que coinciden con ese tipo
+        const coincideTipo = inc.derivacion === tipoDerivacion;
+        return noResuelta && coincideTipo;
+      } else {
+        // Sin filtro de tipo: mostrar todas las incidencias no resueltas
+        return noResuelta;
       }
-      return cumple;
     })
-    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    .sort((a, b) => {
+      // Ordenar por fecha más reciente primero
+      const fechaA = a.timestamp ? new Date(a.timestamp).getTime() : new Date(a.fecha).getTime();
+      const fechaB = b.timestamp ? new Date(b.timestamp).getTime() : new Date(b.fecha).getTime();
+      return fechaB - fechaA;
+    });
   console.log('Total incidencias:', incidencias.length, 'Derivadas encontradas:', derivadas.length);
   return derivadas;
 }
@@ -186,8 +214,9 @@ export function getNotasByStudent(studentName: string): Nota[] {
     .filter(nota => nota.studentName === studentName)
     .sort((a, b) => {
       const periodoOrder = { 'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4 };
-      const periodoDiff = (periodoOrder[a.periodo as keyof typeof periodoOrder] || 0) - 
-                          (periodoOrder[b.periodo as keyof typeof periodoOrder] || 0);
+      const periodoA = (typeof a === 'object' && 'periodo' in a && typeof a.periodo === 'string') ? periodoOrder[a.periodo as keyof typeof periodoOrder] || 0 : 0;
+      const periodoB = (typeof b === 'object' && 'periodo' in b && typeof b.periodo === 'string') ? periodoOrder[b.periodo as keyof typeof periodoOrder] || 0 : 0;
+      const periodoDiff = periodoA - periodoB;
       if (periodoDiff !== 0) return periodoDiff;
       return a.materia.localeCompare(b.materia);
     });
@@ -285,6 +314,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-02').getTime(),
       derivacion: 'director',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-02').toISOString(), usuario: 'system' }
+      ]
     },
     {
       id: '2',
@@ -299,6 +332,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-09').getTime(),
       derivacion: 'psicologia',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-09').toISOString(), usuario: 'system' }
+      ]
     },
     {
       id: '3',
@@ -313,6 +350,10 @@ export function seedInitialData(): void {
       lugar: 'Aula 205',
       timestamp: new Date('2024-12-05').getTime(),
       derivacion: 'ninguna',
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-05').toISOString(), usuario: 'system' }
+      ]
     },
     // María López - 2do A
     {
@@ -328,6 +369,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-03').getTime(),
       derivacion: 'coordinacion',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-03').toISOString(), usuario: 'system' }
+      ]
     },
     {
       id: '5',
@@ -341,6 +386,10 @@ export function seedInitialData(): void {
       lugar: 'Aula 102',
       timestamp: new Date('2024-12-10').getTime(),
       derivacion: 'ninguna',
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-10').toISOString(), usuario: 'system' }
+      ]
     },
     // Carlos Ruiz - 4to A
     {
@@ -356,6 +405,10 @@ export function seedInitialData(): void {
       lugar: 'Aula 401',
       timestamp: new Date('2024-12-08').getTime(),
       derivacion: 'ninguna',
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-08').toISOString(), usuario: 'system' }
+      ]
     },
     {
       id: '7',
@@ -371,6 +424,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-11').getTime(),
       derivacion: 'psicologia',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-11').toISOString(), usuario: 'system' }
+      ]
     },
     // Ana García - 1ro A
     {
@@ -386,6 +443,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-01').getTime(),
       derivacion: 'enfermeria',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-01').toISOString(), usuario: 'system' }
+      ]
     },
     {
       id: '9',
@@ -400,6 +461,10 @@ export function seedInitialData(): void {
       lugar: 'Aula 103',
       timestamp: new Date('2024-12-07').getTime(),
       derivacion: 'ninguna',
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-07').toISOString(), usuario: 'system' }
+      ]
     },
     // Diego Fernández - 2do A
     {
@@ -416,6 +481,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-04').getTime(),
       derivacion: 'director',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-04').toISOString(), usuario: 'system' }
+      ]
     },
     // Isabella Sánchez - 3ro A
     {
@@ -431,6 +500,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-06').getTime(),
       derivacion: 'coordinacion',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-06').toISOString(), usuario: 'system' }
+      ]
     },
     {
       id: '12',
@@ -445,6 +518,10 @@ export function seedInitialData(): void {
       lugar: 'Aula 103',
       timestamp: new Date('2024-12-12').getTime(),
       derivacion: 'ninguna',
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-12').toISOString(), usuario: 'system' }
+      ]
     },
     // Camila Herrera - 4to A
     {
@@ -461,6 +538,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-13').getTime(),
       derivacion: 'orientacion',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-13').toISOString(), usuario: 'system' }
+      ]
     },
     // Natalia Jiménez - 5to A
     {
@@ -476,6 +557,10 @@ export function seedInitialData(): void {
       lugar: 'Aula 102',
       timestamp: new Date('2024-12-14').getTime(),
       derivacion: 'ninguna',
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-14').toISOString(), usuario: 'system' }
+      ]
     },
     // Andrés Castro - 5to A
     {
@@ -491,6 +576,10 @@ export function seedInitialData(): void {
       timestamp: new Date('2024-12-15').getTime(),
       derivacion: 'director',
       resuelta: false,
+      estado: 'Pendiente',
+      historialEstado: [
+        { estado: 'Pendiente', fecha: new Date('2024-12-15').toISOString(), usuario: 'system' }
+      ]
     },
   ];
   
@@ -548,26 +637,26 @@ export function seedInitialData(): void {
   if (existingNotas.length === 0) {
   const notasData: Nota[] = [
     // Juan Pérez
-    { id: 'n1', studentName: 'Juan Pérez', materia: 'Matemáticas', periodo: 'Q1', nota: 85, fecha: '2024-10-15', profesor: 'Prof. López', comentario: 'Buen desempeño' },
-    { id: 'n2', studentName: 'Juan Pérez', materia: 'Matemáticas', periodo: 'Q2', nota: 78, fecha: '2024-11-20', profesor: 'Prof. López', comentario: 'Necesita mejorar' },
-    { id: 'n3', studentName: 'Juan Pérez', materia: 'Ciencias', periodo: 'Q1', nota: 92, fecha: '2024-10-18', profesor: 'Prof. Fernández', comentario: 'Excelente' },
-    { id: 'n4', studentName: 'Juan Pérez', materia: 'Ciencias', periodo: 'Q2', nota: 88, fecha: '2024-11-22', profesor: 'Prof. Fernández' },
-    { id: 'n5', studentName: 'Juan Pérez', materia: 'Lengua', periodo: 'Q1', nota: 75, fecha: '2024-10-20', profesor: 'Prof. García' },
-    { id: 'n6', studentName: 'Juan Pérez', materia: 'Lengua', periodo: 'Q2', nota: 80, fecha: '2024-11-25', profesor: 'Prof. García' },
+    { id: 'n1', studentName: 'Juan Pérez', materia: 'Matemáticas', nota: 85, fecha: '2024-10-15', profesor: 'Prof. López', comentario: 'Buen desempeño' },
+    { id: 'n2', studentName: 'Juan Pérez', materia: 'Matemáticas', nota: 78, fecha: '2024-11-20', profesor: 'Prof. López', comentario: 'Necesita mejorar' },
+    { id: 'n3', studentName: 'Juan Pérez', materia: 'Ciencias', nota: 92, fecha: '2024-10-18', profesor: 'Prof. Fernández', comentario: 'Excelente' },
+    { id: 'n4', studentName: 'Juan Pérez', materia: 'Ciencias', nota: 88, fecha: '2024-11-22', profesor: 'Prof. Fernández' },
+    { id: 'n5', studentName: 'Juan Pérez', materia: 'Lengua', nota: 75, fecha: '2024-10-20', profesor: 'Prof. García' },
+    { id: 'n6', studentName: 'Juan Pérez', materia: 'Lengua', nota: 80, fecha: '2024-11-25', profesor: 'Prof. García' },
     // María López
-    { id: 'n7', studentName: 'María López', materia: 'Matemáticas', periodo: 'Q1', nota: 90, fecha: '2024-10-15', profesor: 'Prof. López', comentario: 'Muy buena' },
-    { id: 'n8', studentName: 'María López', materia: 'Matemáticas', periodo: 'Q2', nota: 88, fecha: '2024-11-20', profesor: 'Prof. López' },
-    { id: 'n9', studentName: 'María López', materia: 'Ciencias', periodo: 'Q1', nota: 65, fecha: '2024-10-18', profesor: 'Prof. Fernández', comentario: 'Requiere apoyo' },
-    { id: 'n10', studentName: 'María López', materia: 'Ciencias', periodo: 'Q2', nota: 70, fecha: '2024-11-22', profesor: 'Prof. Fernández' },
-    { id: 'n11', studentName: 'María López', materia: 'Lengua', periodo: 'Q1', nota: 95, fecha: '2024-10-20', profesor: 'Prof. García', comentario: 'Destacada' },
-    { id: 'n12', studentName: 'María López', materia: 'Lengua', periodo: 'Q2', nota: 93, fecha: '2024-11-25', profesor: 'Prof. García' },
+    { id: 'n7', studentName: 'María López', materia: 'Matemáticas', nota: 90, fecha: '2024-10-15', profesor: 'Prof. López', comentario: 'Muy buena' },
+    { id: 'n8', studentName: 'María López', materia: 'Matemáticas', nota: 88, fecha: '2024-11-20', profesor: 'Prof. López' },
+    { id: 'n9', studentName: 'María López', materia: 'Ciencias', nota: 65, fecha: '2024-10-18', profesor: 'Prof. Fernández', comentario: 'Requiere apoyo' },
+    { id: 'n10', studentName: 'María López', materia: 'Ciencias', nota: 70, fecha: '2024-11-22', profesor: 'Prof. Fernández' },
+    { id: 'n11', studentName: 'María López', materia: 'Lengua', nota: 95, fecha: '2024-10-20', profesor: 'Prof. García', comentario: 'Destacada' },
+    { id: 'n12', studentName: 'María López', materia: 'Lengua', nota: 93, fecha: '2024-11-25', profesor: 'Prof. García' },
     // Carlos Ruiz
-    { id: 'n13', studentName: 'Carlos Ruiz', materia: 'Matemáticas', periodo: 'Q1', nota: 82, fecha: '2024-10-15', profesor: 'Prof. López' },
-    { id: 'n14', studentName: 'Carlos Ruiz', materia: 'Matemáticas', periodo: 'Q2', nota: 85, fecha: '2024-11-20', profesor: 'Prof. López', comentario: 'Mejorando' },
-    { id: 'n15', studentName: 'Carlos Ruiz', materia: 'Ciencias', periodo: 'Q1', nota: 88, fecha: '2024-10-18', profesor: 'Prof. Fernández' },
-    { id: 'n16', studentName: 'Carlos Ruiz', materia: 'Ciencias', periodo: 'Q2', nota: 90, fecha: '2024-11-22', profesor: 'Prof. Fernández', comentario: 'Excelente progreso' },
-    { id: 'n17', studentName: 'Carlos Ruiz', materia: 'Lengua', periodo: 'Q1', nota: 79, fecha: '2024-10-20', profesor: 'Prof. García' },
-    { id: 'n18', studentName: 'Carlos Ruiz', materia: 'Lengua', periodo: 'Q2', nota: 81, fecha: '2024-11-25', profesor: 'Prof. García' },
+    { id: 'n13', studentName: 'Carlos Ruiz', materia: 'Matemáticas', nota: 82, fecha: '2024-10-15', profesor: 'Prof. López' },
+    { id: 'n14', studentName: 'Carlos Ruiz', materia: 'Matemáticas', nota: 85, fecha: '2024-11-20', profesor: 'Prof. López', comentario: 'Mejorando' },
+    { id: 'n15', studentName: 'Carlos Ruiz', materia: 'Ciencias', nota: 88, fecha: '2024-10-18', profesor: 'Prof. Fernández' },
+    { id: 'n16', studentName: 'Carlos Ruiz', materia: 'Ciencias', nota: 90, fecha: '2024-11-22', profesor: 'Prof. Fernández', comentario: 'Excelente progreso' },
+    { id: 'n17', studentName: 'Carlos Ruiz', materia: 'Lengua', nota: 79, fecha: '2024-10-20', profesor: 'Prof. García' },
+    { id: 'n18', studentName: 'Carlos Ruiz', materia: 'Lengua', nota: 81, fecha: '2024-11-25', profesor: 'Prof. García' },
     ];
     
     saveNotas(notasData);
@@ -584,6 +673,311 @@ export function seedInitialData(): void {
       { nombre: 'Arte', grado: '5to', seccion: 'A', profesor: 'Prof. Ramírez', dias: posiblesDias, periodos: [3,7] },
     ];
     clasesSeed.forEach(c => addClase(c));
+  }
+
+  // Seed datos de asistencia - crear estudiantes con 3+ ausencias y tardanzas para pruebas
+  // Contar ausencias y tardanzas de todos los registros
+  const conteoAusencias: Record<string, number> = {};
+  const conteoTardanzas: Record<string, number> = {};
+  
+  existingAsistenciaClases.forEach(reg => {
+    Object.entries(reg.entries || {}).forEach(([nombre, estado]) => {
+      if (estado === 'ausente') {
+        conteoAusencias[nombre] = (conteoAusencias[nombre] || 0) + 1;
+      } else if (estado === 'tardanza') {
+        conteoTardanzas[nombre] = (conteoTardanzas[nombre] || 0) + 1;
+      }
+    });
+  });
+  
+  // Verificar individualmente si cada estudiante tiene más de 3 ausencias/tardanzas (4+)
+  const luisMartinezTiene4Ausencias = (conteoAusencias['Luis Martínez'] || 0) > 3;
+  const juanPerezTiene4Ausencias = (conteoAusencias['Juan Pérez'] || 0) > 3;
+  const mariaLopezTiene4Tardanzas = (conteoTardanzas['María López'] || 0) > 3;
+  
+  console.log('🔍 Verificación de datos de prueba:', {
+    'Luis Martínez': { ausencias: conteoAusencias['Luis Martínez'] || 0, necesitaCrear: !luisMartinezTiene4Ausencias },
+    'Juan Pérez': { ausencias: conteoAusencias['Juan Pérez'] || 0, necesitaCrear: !juanPerezTiene4Ausencias },
+    'María López': { tardanzas: conteoTardanzas['María López'] || 0, necesitaCrear: !mariaLopezTiene4Tardanzas }
+  });
+  
+  if (!luisMartinezTiene4Ausencias || !juanPerezTiene4Ausencias || !mariaLopezTiene4Tardanzas) {
+    const clases = getClases();
+    const claseLengua = clases.find(c => c.nombre === 'Lengua' && c.grado === '1ro' && c.seccion === 'A');
+    const claseMatematicas = clases.find(c => c.nombre === 'Matemáticas' && c.grado === '3ro' && c.seccion === 'A');
+    
+    const diasSemana: DiaSemana[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+    const getDiaSemana = (fecha: Date): DiaSemana => {
+      const dia = fecha.getDay();
+      return diasSemana[dia === 0 ? 6 : dia - 1] || 'lunes';
+    };
+    
+    const formatFecha = (fecha: Date): string => {
+      const yyyy = fecha.getFullYear();
+      const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dd = String(fecha.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    
+    const registrosAsistencia: Omit<RegistroAsistenciaClase, 'id' | 'timestamp'>[] = [];
+    
+    // Crear registros para Luis Martínez (si no tiene 4+ ausencias - necesita más de 3)
+    if (!conteoAusencias['Luis Martínez'] || conteoAusencias['Luis Martínez'] < 4) {
+      if (claseLengua) {
+        const hoy = new Date();
+        const fecha1 = new Date(hoy);
+        fecha1.setDate(hoy.getDate() - 6); // Hace 6 días
+        const fecha2 = new Date(hoy);
+        fecha2.setDate(hoy.getDate() - 5); // Hace 5 días
+        const fecha3 = new Date(hoy);
+        fecha3.setDate(hoy.getDate() - 3); // Hace 3 días
+        const fecha4 = new Date(hoy);
+        fecha4.setDate(hoy.getDate() - 1); // Ayer
+        
+        registrosAsistencia.push(
+          {
+            fecha: formatFecha(fecha1),
+            dia: getDiaSemana(fecha1),
+            claseId: claseLengua.id,
+            grado: '1ro',
+            seccion: 'A',
+            profesor: 'Prof. García',
+            periodo: 1,
+            lugar: 'Aula 101',
+            entries: {
+              'Luis Martínez': 'ausente',
+              'Ana García': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha2),
+            dia: getDiaSemana(fecha2),
+            claseId: claseLengua.id,
+            grado: '1ro',
+            seccion: 'A',
+            profesor: 'Prof. García',
+            periodo: 1,
+            lugar: 'Aula 101',
+            entries: {
+              'Luis Martínez': 'ausente',
+              'Ana García': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha3),
+            dia: getDiaSemana(fecha3),
+            claseId: claseLengua.id,
+            grado: '1ro',
+            seccion: 'A',
+            profesor: 'Prof. García',
+            periodo: 1,
+            lugar: 'Aula 101',
+            entries: {
+              'Luis Martínez': 'ausente',
+              'Ana García': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha4),
+            dia: getDiaSemana(fecha4),
+            claseId: claseLengua.id,
+            grado: '1ro',
+            seccion: 'A',
+            profesor: 'Prof. García',
+            periodo: 1,
+            lugar: 'Aula 101',
+            entries: {
+              'Luis Martínez': 'ausente',
+              'Ana García': 'presente'
+            }
+          }
+        );
+      }
+    }
+    
+    // Crear registros para Juan Pérez (si no tiene 4+ ausencias - necesita más de 3)
+    if (!conteoAusencias['Juan Pérez'] || conteoAusencias['Juan Pérez'] < 4) {
+      if (claseMatematicas) {
+        const hoy = new Date();
+        const fecha1 = new Date(hoy);
+        fecha1.setDate(hoy.getDate() - 6); // Hace 6 días
+        const fecha2 = new Date(hoy);
+        fecha2.setDate(hoy.getDate() - 4); // Hace 4 días
+        const fecha3 = new Date(hoy);
+        fecha3.setDate(hoy.getDate() - 2); // Hace 2 días
+        const fecha4 = new Date(hoy);
+        fecha4.setDate(hoy.getDate() - 1); // Ayer
+        
+        registrosAsistencia.push(
+          {
+            fecha: formatFecha(fecha1),
+            dia: getDiaSemana(fecha1),
+            claseId: claseMatematicas.id,
+            grado: '3ro',
+            seccion: 'A',
+            profesor: 'Prof. López',
+            periodo: 1,
+            lugar: 'Aula 205',
+            entries: {
+              'Juan Pérez': 'ausente',
+              'Isabella Sánchez': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha2),
+            dia: getDiaSemana(fecha2),
+            claseId: claseMatematicas.id,
+            grado: '3ro',
+            seccion: 'A',
+            profesor: 'Prof. López',
+            periodo: 1,
+            lugar: 'Aula 205',
+            entries: {
+              'Juan Pérez': 'ausente',
+              'Isabella Sánchez': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha3),
+            dia: getDiaSemana(fecha3),
+            claseId: claseMatematicas.id,
+            grado: '3ro',
+            seccion: 'A',
+            profesor: 'Prof. López',
+            periodo: 1,
+            lugar: 'Aula 205',
+            entries: {
+              'Juan Pérez': 'ausente',
+              'Isabella Sánchez': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha4),
+            dia: getDiaSemana(fecha4),
+            claseId: claseMatematicas.id,
+            grado: '3ro',
+            seccion: 'A',
+            profesor: 'Prof. López',
+            periodo: 1,
+            lugar: 'Aula 205',
+            entries: {
+              'Juan Pérez': 'ausente',
+              'Isabella Sánchez': 'presente'
+            }
+          }
+        );
+      }
+    }
+    
+    // Crear registros para María López con tardanzas (si no tiene 4+ tardanzas - necesita más de 3)
+    if (!mariaLopezTiene4Tardanzas) {
+      const claseCiencias = clases.find(c => c.nombre === 'Ciencias' && c.grado === '2do' && c.seccion === 'A');
+      if (claseCiencias) {
+        const hoy = new Date();
+        const fecha1 = new Date(hoy);
+        fecha1.setDate(hoy.getDate() - 7); // Hace 7 días
+        const fecha2 = new Date(hoy);
+        fecha2.setDate(hoy.getDate() - 5); // Hace 5 días
+        const fecha3 = new Date(hoy);
+        fecha3.setDate(hoy.getDate() - 3); // Hace 3 días
+        const fecha4 = new Date(hoy);
+        fecha4.setDate(hoy.getDate() - 2); // Hace 2 días
+        
+        registrosAsistencia.push(
+          {
+            fecha: formatFecha(fecha1),
+            dia: getDiaSemana(fecha1),
+            claseId: claseCiencias.id,
+            grado: '2do',
+            seccion: 'A',
+            profesor: 'Prof. Fernández',
+            periodo: 1,
+            lugar: 'Aula 102',
+            entries: {
+              'María López': 'tardanza',
+              'Diego Fernández': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha2),
+            dia: getDiaSemana(fecha2),
+            claseId: claseCiencias.id,
+            grado: '2do',
+            seccion: 'A',
+            profesor: 'Prof. Fernández',
+            periodo: 1,
+            lugar: 'Aula 102',
+            entries: {
+              'María López': 'tardanza',
+              'Diego Fernández': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha3),
+            dia: getDiaSemana(fecha3),
+            claseId: claseCiencias.id,
+            grado: '2do',
+            seccion: 'A',
+            profesor: 'Prof. Fernández',
+            periodo: 1,
+            lugar: 'Aula 102',
+            entries: {
+              'María López': 'tardanza',
+              'Diego Fernández': 'presente'
+            }
+          },
+          {
+            fecha: formatFecha(fecha4),
+            dia: getDiaSemana(fecha4),
+            claseId: claseCiencias.id,
+            grado: '2do',
+            seccion: 'A',
+            profesor: 'Prof. Fernández',
+            periodo: 1,
+            lugar: 'Aula 102',
+            entries: {
+              'María López': 'tardanza',
+              'Diego Fernández': 'presente'
+            }
+          }
+        );
+      }
+    }
+    
+    if (registrosAsistencia.length > 0) {
+      console.log('🔄 Creando', registrosAsistencia.length, 'registros de asistencia de prueba...');
+      registrosAsistencia.forEach(reg => {
+        const creado = addRegistroAsistenciaClase(reg);
+        console.log('  ✓ Registro creado:', creado.fecha, '-', Object.keys(reg.entries || {}).join(', '));
+      });
+      
+      // Recontar después de crear los registros
+      const registrosActualizados = getAsistenciaClases();
+      const nuevoConteoAusencias: Record<string, number> = {};
+      const nuevoConteoTardanzas: Record<string, number> = {};
+      
+      registrosActualizados.forEach(reg => {
+        Object.entries(reg.entries || {}).forEach(([nombre, estado]) => {
+          if (estado === 'ausente') {
+            nuevoConteoAusencias[nombre] = (nuevoConteoAusencias[nombre] || 0) + 1;
+          } else if (estado === 'tardanza') {
+            nuevoConteoTardanzas[nombre] = (nuevoConteoTardanzas[nombre] || 0) + 1;
+          }
+        });
+      });
+      
+      console.log('✅ Datos de prueba creados. Conteo final:', {
+        'Luis Martínez': { ausencias: nuevoConteoAusencias['Luis Martínez'] || 0, tardanzas: nuevoConteoTardanzas['Luis Martínez'] || 0 },
+        'Juan Pérez': { ausencias: nuevoConteoAusencias['Juan Pérez'] || 0, tardanzas: nuevoConteoTardanzas['Juan Pérez'] || 0 },
+        'María López': { ausencias: nuevoConteoAusencias['María López'] || 0, tardanzas: nuevoConteoTardanzas['María López'] || 0 }
+      });
+    } else {
+      console.log('ℹ️ No se crearon nuevos registros de asistencia. Datos existentes:', {
+        'Luis Martínez': { ausencias: conteoAusencias['Luis Martínez'] || 0, tardanzas: conteoTardanzas['Luis Martínez'] || 0 },
+        'Juan Pérez': { ausencias: conteoAusencias['Juan Pérez'] || 0, tardanzas: conteoTardanzas['Juan Pérez'] || 0 },
+        'María López': { ausencias: conteoAusencias['María López'] || 0, tardanzas: conteoTardanzas['María López'] || 0 }
+      });
+    }
   }
 }
 
@@ -641,6 +1035,94 @@ export function getAsistenciaClases(): RegistroAsistenciaClase[] {
   }
 }
 
+// Funciones para Grados
+export function getGrados(): string[] {
+  if (typeof window === 'undefined') return ['1ro', '2do', '3ro', '4to', '5to'];
+  try {
+    const stored = localStorage.getItem(GRADOS_STORAGE_KEY);
+    if (!stored) return ['1ro', '2do', '3ro', '4to', '5to']; // Valores por defecto
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error reading grados from localStorage:', error);
+    return ['1ro', '2do', '3ro', '4to', '5to'];
+  }
+}
+
+export function saveGrados(grados: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(GRADOS_STORAGE_KEY, JSON.stringify(grados));
+  } catch (error) {
+    console.error('Error saving grados to localStorage:', error);
+  }
+}
+
+// Funciones para Secciones
+export function getSecciones(): string[] {
+  if (typeof window === 'undefined') return ['A', 'B', 'C'];
+  try {
+    const stored = localStorage.getItem(SECCIONES_STORAGE_KEY);
+    if (!stored) return ['A', 'B', 'C']; // Valores por defecto
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error reading secciones from localStorage:', error);
+    return ['A', 'B', 'C'];
+  }
+}
+
+export function saveSecciones(secciones: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SECCIONES_STORAGE_KEY, JSON.stringify(secciones));
+  } catch (error) {
+    console.error('Error saving secciones to localStorage:', error);
+  }
+}
+
+// Funciones para Tutores por Grado y Sección
+export function getTutoresGradoSeccion(): TutorGradoSeccion[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(TUTORES_GRADO_SECCION_STORAGE_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error reading tutores grado seccion from localStorage:', error);
+    return [];
+  }
+}
+
+export function saveTutoresGradoSeccion(tutores: TutorGradoSeccion[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(TUTORES_GRADO_SECCION_STORAGE_KEY, JSON.stringify(tutores));
+  } catch (error) {
+    console.error('Error saving tutores grado seccion to localStorage:', error);
+  }
+}
+
+export function getTutorGradoSeccion(grado: string, seccion: string): TutorGradoSeccion | undefined {
+  const tutores = getTutoresGradoSeccion();
+  return tutores.find(t => t.grado === grado && t.seccion === seccion);
+}
+
+export function setTutorGradoSeccion(grado: string, seccion: string, tutorId: string, tutorNombre: string): void {
+  const tutores = getTutoresGradoSeccion();
+  const idx = tutores.findIndex(t => t.grado === grado && t.seccion === seccion);
+  const nuevo: TutorGradoSeccion = { grado, seccion, tutorId, tutorNombre };
+  if (idx >= 0) {
+    tutores[idx] = nuevo;
+  } else {
+    tutores.push(nuevo);
+  }
+  saveTutoresGradoSeccion(tutores);
+}
+
+export function removeTutorGradoSeccion(grado: string, seccion: string): void {
+  const tutores = getTutoresGradoSeccion();
+  saveTutoresGradoSeccion(tutores.filter(t => !(t.grado === grado && t.seccion === seccion)));
+}
+
 export function saveAsistenciaClases(registros: RegistroAsistenciaClase[]): void {
   if (typeof window === 'undefined') return;
   try {
@@ -685,5 +1167,93 @@ export function getAsistenciaClasesByFilters(params: { fecha?: string; claseId?:
     (params.dia ? r.dia === params.dia : true) &&
     (typeof params.periodo === 'number' ? r.periodo === params.periodo : true)
   )).sort((a,b) => a.periodo - b.periodo || a.timestamp - b.timestamp);
+}
+
+// ===== Funciones para gestionar estudiantes atendidos en notificaciones =====
+const ESTUDIANTES_ATENDIDOS_KEY = 'tutoria_estudiantes_atendidos';
+
+export interface EstudianteAtendido {
+  nombre: string;
+  fecha: string; // Fecha en formato YYYY-MM-DD
+  profesor: string;
+}
+
+export function getEstudiantesAtendidos(): EstudianteAtendido[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(ESTUDIANTES_ATENDIDOS_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('Error reading estudiantes atendidos from localStorage:', error);
+    return [];
+  }
+}
+
+export function saveEstudiantesAtendidos(estudiantes: EstudianteAtendido[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(ESTUDIANTES_ATENDIDOS_KEY, JSON.stringify(estudiantes));
+  } catch (error) {
+    console.error('Error saving estudiantes atendidos to localStorage:', error);
+  }
+}
+
+export function marcarEstudianteAtendido(nombre: string, fecha: string, profesor: string): void {
+  const atendidos = getEstudiantesAtendidos();
+  // Eliminar registros antiguos del mismo estudiante y profesor (mantener solo el más reciente)
+  const filtrados = atendidos.filter(
+    e => !(e.nombre === nombre && e.profesor === profesor)
+  );
+  // Agregar el nuevo registro
+  filtrados.push({ nombre, fecha, profesor });
+  saveEstudiantesAtendidos(filtrados);
+  console.log('✅ Estudiante marcado como atendido:', { nombre, fecha, profesor, totalAtendidos: filtrados.length });
+}
+
+export function marcarEstudiantesAtendidos(nombres: string[], fecha: string, profesor: string): void {
+  nombres.forEach(nombre => {
+    marcarEstudianteAtendido(nombre, fecha, profesor);
+  });
+}
+
+export function esEstudianteAtendido(nombre: string, profesor: string, fecha?: string): boolean {
+  const atendidos = getEstudiantesAtendidos();
+  const hoy = fecha || new Date().toISOString().split('T')[0];
+  
+  // Verificar si el estudiante fue atendido hoy por este profesor
+  const esAtendido = atendidos.some(
+    e => e.nombre === nombre && 
+         e.profesor === profesor && 
+         e.fecha === hoy
+  );
+  
+  // Debug: solo loggear cuando se encuentra un estudiante atendido o cuando hay discrepancia
+  if (esAtendido) {
+    console.log('✅ Estudiante atendido encontrado:', { nombre, profesor, fecha: hoy });
+  } else {
+    // Solo loggear si hay estudiantes atendidos para este profesor pero este no está
+    const atendidosDelProfesor = atendidos.filter(e => e.profesor === profesor && e.fecha === hoy);
+    if (atendidosDelProfesor.length > 0) {
+      console.log('⚠️ Estudiante NO encontrado en atendidos:', {
+        nombre,
+        profesor,
+        fecha: hoy,
+        atendidosDelProfesor: atendidosDelProfesor.map(e => e.nombre)
+      });
+    }
+  }
+  
+  return esAtendido;
+}
+
+export function limpiarEstudiantesAtendidosAntiguos(diasAntiguedad: number = 7): void {
+  const atendidos = getEstudiantesAtendidos();
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() - diasAntiguedad);
+  const fechaLimiteStr = fechaLimite.toISOString().split('T')[0];
+  
+  const filtrados = atendidos.filter(e => e.fecha >= fechaLimiteStr);
+  saveEstudiantesAtendidos(filtrados);
 }
 

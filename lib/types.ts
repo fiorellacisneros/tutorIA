@@ -1,8 +1,16 @@
-export type TipoIncidencia = 'ausencia' | 'tardanza' | 'conducta' | 'academica' | 'positivo';
+export type TipoIncidencia = 'ausencia' | 'tardanza' | 'conducta' | 'academica' | 'positivo' | 'asistencia';
 export type TipoDerivacion = 'ninguna' | 'director' | 'psicologia' | 'enfermeria' | 'coordinacion' | 'orientacion';
 export type SubtipoConducta = 'agresion' | 'falta_respeto' | 'interrupcion' | 'desobediencia' | 'otra';
 export type SubtipoPositivo = 'ayuda_companero' | 'participacion' | 'liderazgo' | 'creatividad' | 'otro';
 export type Gravedad = 'grave' | 'moderada' | 'leve';
+
+export type EstadoIncidencia = 'Pendiente' | 'En revisión' | 'Resuelta' | 'Cerrada';
+
+export interface EstadoIncidenciaHistorial {
+  estado: EstadoIncidencia;
+  fecha: string; // ISO
+  usuario: string;
+}
 
 export interface Incidencia {
   id: string;
@@ -20,13 +28,15 @@ export interface Incidencia {
   resuelta?: boolean; // Si ya fue resuelta
   fechaResolucion?: string; // Fecha en que se resolvió
   resueltaPor?: string; // Quién la resolvió
+  estado: EstadoIncidencia;
+  historialEstado?: EstadoIncidenciaHistorial[];
 }
 
 export interface Nota {
   id: string;
   studentName: string;
   materia: string;
-  periodo: string; // "Q1", "Q2", "Q3", "Q4"
+    estado?: 'pendiente' | 'normal' | 'resuelta';
   nota: number;
   fecha: string;
   profesor: string;
@@ -44,6 +54,20 @@ export interface EstudianteInfo {
     telefono?: string;
     email?: string;
     tutor?: string;
+    nombre?: string;
+  };
+  tutor?: {
+    nombre?: string;
+    telefono?: string;
+    email?: string;
+  };
+  apoderado?: {
+    nombre?: string;
+    parentesco?: string; // Ej: Madre, Padre, Abuelo, Tío, etc.
+    telefono?: string;
+    telefonoAlternativo?: string;
+    email?: string;
+    direccion?: string;
   };
   asistencias?: number;
   ausencias?: number;
@@ -57,6 +81,13 @@ export interface Tutor {
   telefono?: string;
 }
 
+export interface TutorGradoSeccion {
+  grado: string;
+  seccion: string;
+  tutorId: string;
+  tutorNombre: string;
+}
+
 export interface ReporteIA {
   report: string;
   timestamp: string;
@@ -64,6 +95,12 @@ export interface ReporteIA {
   note?: string;
   originalError?: string;
   truncated?: boolean; // Indica si el reporte fue cortado por límite de tokens
+  resumen?: string; // Resumen del análisis (opcional)
+  analisisPatrones?: string; // Análisis de patrones (opcional)
+  fortalezas?: string; // Fortalezas y áreas de mejora (opcional)
+  factoresRiesgo?: string; // Factores de riesgo (opcional)
+  recomendaciones?: string; // Recomendaciones del análisis (opcional)
+  planSeguimiento?: string; // Plan de seguimiento (opcional)
 }
 
 // Nuevos tipos para asistencia por clase
